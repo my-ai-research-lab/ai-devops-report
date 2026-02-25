@@ -169,109 +169,202 @@
         
         if (!tipElements.length) return;
         
+        // 检测是否为移动设备或触摸设备
+        function isMobileOrTouch() {
+            return window.innerWidth <= 768 || 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        }
+        
         // 创建全局 tooltip 元素
         let tooltip = document.getElementById('global-tooltip');
         if (!tooltip) {
             tooltip = document.createElement('div');
             tooltip.id = 'global-tooltip';
             tooltip.className = 'tooltip-global';
-            tooltip.style.cssText = `
-                position: fixed;
-                background: rgba(36, 41, 47, 0.95);
-                color: #fff;
-                padding: 12px 16px;
-                border-radius: 8px;
-                font-size: 13px;
-                line-height: 1.5;
-                max-width: 320px;
-                z-index: 10000;
-                pointer-events: none;
-                opacity: 0;
-                visibility: hidden;
-                transition: opacity 0.2s, visibility 0.2s;
-                box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-            `;
             document.body.appendChild(tooltip);
         }
         
-        function showTooltip(e) {
-            const tip = e.currentTarget.getAttribute('data-tip');
+        // 创建遮罩层（移动端用）
+        let overlay = document.getElementById('tip-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'tip-overlay';
+            overlay.style.cssText = `
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 9998;
+            `;
+            document.body.appendChild(overlay);
+        }
+        
+        // 更新tooltip样式（根据设备类型）
+        function updateTooltipStyle() {
+            if (isMobileOrTouch()) {
+                // 移动端：居中弹窗样式
+                tooltip.style.cssText = `
+                    position: fixed;
+                    background: #fff;
+                    color: #24292f;
+                    padding: 20px;
+                    border-radius: 12px;
+                    font-size: 14px;
+                    line-height: 1.6;
+                    width: 90vw;
+                    max-width: 340px;
+                    max-height: 70vh;
+                    overflow-y: auto;
+                    z-index: 10000;
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: opacity 0.2s, visibility 0.2s;
+                    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    pointer-events: auto;
+                `;
+            } else {
+                // 桌面端：跟随鼠标样式
+                tooltip.style.cssText = `
+                    position: fixed;
+                    background: rgba(36, 41, 47, 0.95);
+                    color: #fff;
+                    padding: 12px 16px;
+                    border-radius: 8px;
+                    font-size: 13px;
+                    line-height: 1.5;
+                    max-width: 320px;
+                    z-index: 10000;
+                    pointer-events: none;
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: opacity 0.2s, visibility 0.2s;
+                    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+                `;
+            }
+        }
+        
+        updateTooltipStyle();
+        window.addEventListener('resize', updateTooltipStyle);
+        
+        let activeElement = null;
+        
+        function showTooltip(e, el) {
+            const target = el || e.currentTarget;
+            const tip = target.getAttribute('data-tip');
             if (!tip) return;
             
             tooltip.textContent = tip;
             tooltip.style.visibility = 'visible';
             tooltip.style.opacity = '1';
+            activeElement = target;
             
-            // 定位
-            const rect = e.currentTarget.getBoundingClientRect();
-            
-            // 先显示再获取尺寸
-            requestAnimationFrame(() => {
-                const tooltipRect = tooltip.getBoundingClientRect();
-                
-                // 默认显示在元素上方
-                let top = rect.top - tooltipRect.height - 10;
-                let left = rect.left + rect.width / 2 - tooltipRect.width / 2;
-                
-                // 如果上方空间不足，显示在下方
-                if (top < 10) {
-                    top = rect.bottom + 10;
-                }
-                
-                // 防止超出左边界
-                if (left < 10) {
-                    left = 10;
-                }
-                
-                // 防止超出右边界
-                if (left + tooltipRect.width > window.innerWidth - 10) {
-                    left = window.innerWidth - tooltipRect.width - 10;
-                }
-                
-                tooltip.style.top = top + 'px';
-                tooltip.style.left = left + 'px';
-            });
+            if (isMobileOrTouch()) {
+                // 移动端：显示遮罩层
+                overlay.style.display = 'block';
+            } else {
+                // 桌面端：定位到元素附近
+                const rect = target.getBoundingClientRect();
+                requestAnimationFrame(() => {
+                    const tooltipRect = tooltip.getBoundingClientRect();
+                    let top = rect.top - tooltipRect.height - 10;
+                    let left = rect.left + rect.width / 2 - tooltipRect.width / 2;
+                    
+                    if (top < 10) {
+                        top = rect.bottom + 10;
+                    }
+                    if (left < 10) {
+                        left = 10;
+                    }
+                    if (left + tooltipRect.width > window.innerWidth - 10) {
+                        left = window.innerWidth - tooltipRect.width - 10;
+                    }
+                    
+                    tooltip.style.top = top + 'px';
+                    tooltip.style.left = left + 'px';
+                    tooltip.style.transform = 'none';
+                });
+            }
         }
         
         function hideTooltip() {
             tooltip.style.opacity = '0';
             tooltip.style.visibility = 'hidden';
+            overlay.style.display = 'none';
+            activeElement = null;
+            tipElements.forEach(el => el.classList.remove('tooltip-active'));
         }
         
         tipElements.forEach(el => {
+            // 桌面端：鼠标悬浮
             el.addEventListener('mouseenter', showTooltip, { passive: true });
             el.addEventListener('mouseleave', hideTooltip, { passive: true });
             el.style.cursor = 'help';
+            el.style.webkitTapHighlightColor = 'rgba(9, 105, 218, 0.1)';
             
             // 为表格单元格添加下划线虚线样式
             if (el.tagName === 'TD' || el.tagName === 'TH') {
                 el.style.borderBottom = '1px dashed #8B949E';
             }
+            
+            // 移动端：点击/触摸显示
+            el.addEventListener('click', function(e) {
+                if (!isMobileOrTouch()) return;
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (activeElement === el) {
+                    hideTooltip();
+                } else {
+                    showTooltip(e, el);
+                    this.classList.add('tooltip-active');
+                }
+            });
+            
+            el.addEventListener('touchend', function(e) {
+                if (!isMobileOrTouch()) return;
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (activeElement === el) {
+                    hideTooltip();
+                } else {
+                    showTooltip(e, el);
+                    this.classList.add('tooltip-active');
+                }
+            }, { passive: false });
         });
         
-        // 触摸设备支持
-        tipElements.forEach(el => {
-            el.addEventListener('touchstart', function(e) {
-                // 移除其他活跃的tooltip
-                tipElements.forEach(other => {
-                    if (other !== el) {
-                        other.classList.remove('tooltip-active');
-                    }
-                });
-                // 显示当前tooltip
-                showTooltip(e);
-                this.classList.add('tooltip-active');
-            }, { passive: true });
-        });
+        // 点击遮罩层或tooltip关闭
+        overlay.addEventListener('click', hideTooltip);
+        overlay.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            hideTooltip();
+        }, { passive: false });
         
-        // 点击空白处关闭tooltip
-        document.addEventListener('touchstart', (e) => {
-            if (!e.target.closest('[data-tip]')) {
+        tooltip.addEventListener('click', (e) => {
+            if (isMobileOrTouch()) {
+                e.stopPropagation();
                 hideTooltip();
-                tipElements.forEach(el => {
-                    el.classList.remove('tooltip-active');
-                });
             }
-        }, { passive: true });
+        });
+        
+        // 点击空白处关闭tooltip（移动端）
+        document.addEventListener('click', (e) => {
+            if (isMobileOrTouch() && activeElement && !e.target.closest('[data-tip]') && !e.target.closest('#global-tooltip')) {
+                hideTooltip();
+            }
+        });
+        
+        // ESC关闭
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                hideTooltip();
+            }
+        });
     }
 })();
