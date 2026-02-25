@@ -204,15 +204,16 @@
         // 更新tooltip样式（根据设备类型）
         function updateTooltipStyle() {
             if (isMobileOrTouch()) {
-                // 移动端：居中弹窗样式
+                // 移动端：居中弹窗样式（白色背景，更大更清晰）
                 tooltip.style.cssText = `
                     position: fixed;
                     background: #fff;
                     color: #24292f;
-                    padding: 20px;
-                    border-radius: 12px;
+                    padding: 24px;
+                    padding-top: 48px;
+                    border-radius: 16px;
                     font-size: 14px;
-                    line-height: 1.6;
+                    line-height: 1.7;
                     width: 90vw;
                     max-width: 340px;
                     max-height: 70vh;
@@ -221,12 +222,47 @@
                     opacity: 0;
                     visibility: hidden;
                     transition: opacity 0.2s, visibility 0.2s;
-                    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
                     top: 50%;
                     left: 50%;
                     transform: translate(-50%, -50%);
                     pointer-events: auto;
                 `;
+                // 添加关闭按钮
+                if (!tooltip.querySelector('.tooltip-close-btn')) {
+                    const closeBtn = document.createElement('button');
+                    closeBtn.className = 'tooltip-close-btn';
+                    closeBtn.innerHTML = '×';
+                    closeBtn.style.cssText = `
+                        position: absolute;
+                        top: 12px;
+                        right: 12px;
+                        width: 32px;
+                        height: 32px;
+                        background: #f6f8fa;
+                        color: #57606a;
+                        border: 1px solid #d0d7de;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 20px;
+                        cursor: pointer;
+                        z-index: 10001;
+                        transition: all 0.2s ease;
+                        -webkit-tap-highlight-color: transparent;
+                    `;
+                    closeBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        hideTooltip();
+                    });
+                    closeBtn.addEventListener('touchend', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        hideTooltip();
+                    }, { passive: false });
+                    tooltip.appendChild(closeBtn);
+                }
             } else {
                 // 桌面端：跟随鼠标样式
                 tooltip.style.cssText = `
@@ -245,6 +281,9 @@
                     transition: opacity 0.2s, visibility 0.2s;
                     box-shadow: 0 8px 24px rgba(0,0,0,0.2);
                 `;
+                // 移除关闭按钮（桌面端不需要）
+                const closeBtn = tooltip.querySelector('.tooltip-close-btn');
+                if (closeBtn) closeBtn.remove();
             }
         }
         
